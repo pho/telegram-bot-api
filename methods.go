@@ -1,12 +1,18 @@
 package tgbotapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 )
 
@@ -40,6 +46,27 @@ type LocationConfig struct {
 	Longitude        float64
 	ReplyToMessageId int
 	ReplyMarkup      interface{}
+}
+
+type AudioConfig struct {
+	ChatId           int
+	ReplyToMessageId int
+	ReplyMarkup      interface{}
+
+	UseExistingAudio bool
+	FilePath         string
+	FileId           string
+}
+
+type PhotoConfig struct {
+	ChatId           int
+	Caption          string
+	ReplyToMessageId int
+	ReplyMarkup      interface{}
+
+	UseExistingPhoto bool
+	FilePath         string
+	FileId           string
 }
 
 type ChatActionConfig struct {
@@ -79,6 +106,74 @@ func (bot *Bot) MakeRequest(endpoint string, params url.Values) (ApiResponse, er
 	if !apiResp.Ok {
 		return apiResp, errors.New(apiResp.Description)
 	}
+
+	return apiResp, nil
+}
+
+func (bot *Bot) UploadFile(endpoint string, params map[string]string, fieldname string, filename string) (ApiResponse, error) {
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+
+	pwd, err := os.Getwd()
+	if err != nil {
+		return ApiResponse{}, err
+	}
+
+	fmt.Println("Uploading file:", filepath.Base(filename), pwd+"\\"+filename)
+	f, err := os.Open(pwd + "\\" + filename)
+	if err != nil {
+		return ApiResponse{}, err
+	}
+
+	fw, err := w.CreateFormFile(fieldname, filepath.Base(filename))
+	if err != nil {
+		return ApiResponse{}, err
+	}
+
+	if _, err = io.Copy(fw, f); err != nil {
+		return ApiResponse{}, err
+	}
+
+	for key, val := range params {
+		if fw, err = w.CreateFormField(key); err != nil {
+			return ApiResponse{}, err
+		}
+
+		if _, err = fw.Write([]byte(val)); err != nil {
+			return ApiResponse{}, err
+		}
+	}
+
+	w.Close()
+
+	fmt.Println(fw, b)
+
+	req, err := http.NewRequest("POST", "https://api.telegram.org/bot"+bot.token+"/"+endpoint, &b)
+	if err != nil {
+		return ApiResponse{}, err
+	}
+
+	req.Header.Set("Content-Type", w.FormDataContentType())
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return ApiResponse{}, err
+	}
+
+	bytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return ApiResponse{}, err
+	}
+
+	if bot.debug {
+		log.Println(string(bytes[:]))
+	}
+
+	var apiResp ApiResponse
+	json.Unmarshal(bytes, &apiResp)
+
+	fmt.Println("Upload completed", apiResp)
 
 	return apiResp, nil
 }
@@ -176,6 +271,138 @@ func (bot *Bot) SendLocation(config LocationConfig) (Message, error) {
 	if bot.debug {
 		log.Printf("sendLocation req : %+v\n", v)
 		log.Printf("sendLocation resp: %+v\n", message)
+	}
+
+	return message, nil
+}
+
+func (bot *Bot) SendAudio(config AudioConfig) (Message, error) {
+	if config.UseExistingAudio {
+		v := url.Values{}
+		v.Add("chat_id", strconv.Itoa(config.ChatId))
+		v.Add("audio", config.FileId)
+		if config.ReplyToMessageId != 0 {
+			v.Add("reply_to_message_id", strconv.Itoa(config.ChatId))
+		}
+		if config.ReplyMarkup != nil {
+			data, err := json.Marshal(config.ReplyMarkup)
+			if err != nil {
+				return Message{}, err
+			}
+
+			v.Add("reply_markup", string(data))
+		}
+
+		resp, err := bot.MakeRequest("sendAudio", v)
+		if err != nil {
+			return Message{}, err
+		}
+
+		var message Message
+		json.Unmarshal(resp.Result, &message)
+
+		if bot.debug {
+			log.Printf("sendAudio req : %+v\n", v)
+			log.Printf("sendAudio resp: %+v\n", message)
+		}
+
+		return message, nil
+	}
+
+	params := make(map[string]string)
+	params["chat_id"] = strconv.Itoa(config.ChatId)
+
+	if config.ReplyToMessageId != 0 {
+		params["reply_to_message_id"] = strconv.Itoa(config.ReplyToMessageId)
+	}
+	if config.ReplyMarkup != nil {
+		data, err := json.Marshal(config.ReplyMarkup)
+		if err != nil {
+			return Message{}, err
+		}
+
+		params["reply_markup"] = string(data)
+	}
+
+	fmt.Println("Params:", params)
+	resp, err := bot.UploadFile("sendAudio", params, "audio", config.FilePath)
+	if err != nil {
+		return Message{}, err
+	}
+
+	var message Message
+	json.Unmarshal(resp.Result, &message)
+
+	if bot.debug {
+		log.Printf("sendAudio resp: %+v\n", message)
+	}
+
+	return message, nil
+}
+
+func (bot *Bot) SendPhoto(config PhotoConfig) (Message, error) {
+	if config.UseExistingPhoto {
+		v := url.Values{}
+		v.Add("chat_id", strconv.Itoa(config.ChatId))
+		v.Add("photo", config.FileId)
+		if config.Caption != "" {
+			v.Add("caption", config.Caption)
+		}
+		if config.ReplyToMessageId != 0 {
+			v.Add("reply_to_message_id", strconv.Itoa(config.ChatId))
+		}
+		if config.ReplyMarkup != nil {
+			data, err := json.Marshal(config.ReplyMarkup)
+			if err != nil {
+				return Message{}, err
+			}
+
+			v.Add("reply_markup", string(data))
+		}
+
+		resp, err := bot.MakeRequest("sendPhoto", v)
+		if err != nil {
+			return Message{}, err
+		}
+
+		var message Message
+		json.Unmarshal(resp.Result, &message)
+
+		if bot.debug {
+			log.Printf("sendPhoto req : %+v\n", v)
+			log.Printf("sendPhoto resp: %+v\n", message)
+		}
+
+		return message, nil
+	}
+
+	params := make(map[string]string)
+	params["chat_id"] = strconv.Itoa(config.ChatId)
+	if config.Caption != "" {
+		params["caption"] = config.Caption
+	}
+	if config.ReplyToMessageId != 0 {
+		params["reply_to_message_id"] = strconv.Itoa(config.ReplyToMessageId)
+	}
+	if config.ReplyMarkup != nil {
+		data, err := json.Marshal(config.ReplyMarkup)
+		if err != nil {
+			return Message{}, err
+		}
+
+		params["reply_markup"] = string(data)
+	}
+
+	resp, err := bot.UploadFile("sendPhoto", params, "photo", config.FilePath)
+	if err != nil {
+		return Message{}, err
+	}
+
+	var message Message
+	json.Unmarshal(resp.Result, &message)
+
+	if bot.debug {
+		log.Printf("sendPhoto resp: %+v\n", message)
 	}
 
 	return message, nil

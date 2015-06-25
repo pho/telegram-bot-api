@@ -49,3 +49,40 @@ func NewUpdate(offset int) UpdateConfig {
 		Timeout: 0,
 	}
 }
+
+func NewPhotoFromFile(chatId int, filename string) PhotoConfig {
+	return PhotoConfig{
+		ChatId:           chatId,
+		UseExistingPhoto: false,
+		FilePath:         filename,
+	}
+}
+
+func NewAudioFromFile(chatId int, path string) AudioConfig {
+	return AudioConfig{
+		ChatId:           chatId,
+		FilePath:         path,
+		UseExistingAudio: false,
+	}
+}
+
+func NewAudioFromId(chatId int, id string) AudioConfig {
+	return AudioConfig{
+		ChatId:           chatId,
+		FileId:           id,
+		UseExistingAudio: true,
+	}
+}
+
+func (b *Bot) Name() string {
+	s := b.self.FirstName
+	if b.self.LastName != "" {
+		s += " " + b.self.LastName
+	}
+
+	return s
+}
+
+func (b *Bot) UserName() string {
+	return b.self.UserName
+}
