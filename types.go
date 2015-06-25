@@ -10,8 +10,9 @@ type Bot struct {
 }
 
 type ApiResponse struct {
-	Ok     bool            `json:"ok"`
-	Result json.RawMessage `json:"result"`
+	Ok          bool            `json:"ok"`
+	Result      json.RawMessage `json:"result"`
+	Description string          `json:"description"`
 }
 
 type Update struct {

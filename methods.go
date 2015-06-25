@@ -2,6 +2,7 @@ package tgbotapi
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -65,7 +66,7 @@ func (bot *Bot) MakeRequest(endpoint string, params url.Values) (ApiResponse, er
 
 	bytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return ApiResponse{}, nil
+		return ApiResponse{}, err
 	}
 
 	if bot.debug {
@@ -74,6 +75,10 @@ func (bot *Bot) MakeRequest(endpoint string, params url.Values) (ApiResponse, er
 
 	var apiResp ApiResponse
 	json.Unmarshal(bytes, &apiResp)
+
+	if !apiResp.Ok {
+		return apiResp, errors.New(apiResp.Description)
+	}
 
 	return apiResp, nil
 }
