@@ -119,8 +119,8 @@ func (bot *Bot) UploadFile(endpoint string, params map[string]string, fieldname 
 		return ApiResponse{}, err
 	}
 
-	fmt.Println("Uploading file:", filepath.Base(filename), pwd+"\\"+filename)
-	f, err := os.Open(pwd + "\\" + filename)
+	fmt.Println("Uploading file:", filepath.Base(filename), filepath.FromSlash(pwd+"/"+filename))
+	f, err := os.Open(filepath.FromSlash(pwd + "/" + filename))
 	if err != nil {
 		return ApiResponse{}, err
 	}
