@@ -15,21 +15,15 @@ type UpdateConfig struct {
 
 func (bot *Bot) GetUpdates(config UpdateConfig) (chan Update, error) {
 
-	var offset, limit, timeout int
-
-	if config.Offset > 0 {
-		offset = config.Offset
-	}
-	if config.Limit > 0 {
-		limit = config.Limit
-	}
-	if config.Timeout > 0 {
-		timeout = config.Timeout
-	}
+	offset := config.Offset
+	limit := config.Limit
+	timeout := config.Timeout
 
 	bot.updates = make(chan Update, 100)
 
 	go func() {
+		defer close(bot.updates)
+
 		for {
 			v := url.Values{}
 			if offset > 0 {
@@ -52,12 +46,12 @@ func (bot *Bot) GetUpdates(config UpdateConfig) (chan Update, error) {
 				}
 
 				for _, e := range updates {
-					if e.UpdateId > offset {
-						offset = e.UpdateId
+					if e.UpdateId >= offset {
+						offset = e.UpdateId + 1
 					}
+
 					bot.updates <- e
 				}
-				offset++
 			}
 		}
 	}()
