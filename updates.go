@@ -7,13 +7,8 @@ import (
 	"strconv"
 )
 
-type UpdateConfig struct {
-	Offset  int
-	Limit   int
-	Timeout int
-}
-
-func (bot *Bot) GetUpdates(config UpdateConfig) (chan Update, error) {
+// GetUpdates returns a chan filled whenever a new update is gotten.
+func (bot *Bot) GetUpdatesChan(config UpdateConfig) (chan Update, error) {
 
 	offset := config.Offset
 	limit := config.Limit
@@ -41,13 +36,13 @@ func (bot *Bot) GetUpdates(config UpdateConfig) (chan Update, error) {
 				var updates []Update
 				json.Unmarshal(resp.Result, &updates)
 
-				if bot.debug {
+				if bot.Debug {
 					log.Printf("getUpdates: %+v\n", updates)
 				}
 
 				for _, e := range updates {
-					if e.UpdateId >= offset {
-						offset = e.UpdateId + 1
+					if e.UpdateID >= offset {
+						offset = e.UpdateID + 1
 					}
 
 					bot.updates <- e
@@ -57,4 +52,5 @@ func (bot *Bot) GetUpdates(config UpdateConfig) (chan Update, error) {
 	}()
 
 	return bot.updates, nil
+
 }
