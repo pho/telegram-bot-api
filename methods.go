@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 )
 
@@ -163,9 +164,14 @@ func (bot *Bot) UploadFile(endpoint string, params map[string]string, fieldname 
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
 
-	f, err := os.Open(filename)
+	pwd, err := os.Getwd()
 	if err != nil {
-		return APIResponse{}, err
+		return ApiResponse{}, err
+	}
+
+	f, err := os.Open(filepath.FromSlash(pwd + "/" + filename))
+	if err != nil {
+		return ApiResponse{}, err
 	}
 
 	fw, err := w.CreateFormFile(fieldname, filename)
