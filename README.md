@@ -1,4 +1,4 @@
-# Golang Telegram bindings for the Bot API
+# Golang bindings for the Telegram Bot API
 
 [![GoDoc](https://godoc.org/github.com/pho/telegram-bot-api?status.svg)](https://godoc.org/github.com/pho/telegram-bot-api)
 
